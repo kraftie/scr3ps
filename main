@@ -1,0 +1,27 @@
+var roleInstandhalter = require('role.instandhalter');
+var rolesauger = require('role.energiesauger');
+var roleSpawn = require('role.spawn');
+
+module.exports.loop = function () 
+{
+	for(var name in Game.creeps) 
+	{
+        var creep = Game.creeps[name];
+        if(creep.memory.role == 'mech') 
+        {
+            roleInstandhalter.run(creep);
+        }
+        if(creep.memory.role == 'sauger') 
+        {
+            rolesauger.run(creep);
+        }
+    }
+    for(var name in Game.spawns)
+    {
+        var spawn = Game.spawns[name];
+        if(spawn.memory.role == 'spawn') 
+        {
+            roleSpawn.run(spawn);
+        }
+    }
+};
