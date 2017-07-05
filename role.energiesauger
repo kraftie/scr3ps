@@ -1,0 +1,108 @@
+/* 0: gather
+ * 1: look
+ * 2: moving
+ */
+var roleenergiesauger = {run: function(creep) 
+{
+    switch(creep.memory.state){
+        case 0:
+            DoGatherEnergy(creep);
+            break;
+        case 1:
+            StartSauger(creep);
+            break;
+        case 2:
+            GoToSAUGERSTATION(creep);
+            break;
+        default:
+            creep.say('shit im stuck...')
+            break;
+    }
+}};
+function FindSaugerLessSource(creep)
+{
+    var v = creep.room.find(FIND_SOURCES);
+    var r = [];
+    for(var i = 0;i<v.length;i++)
+    {
+        var a = v[i].pos.findInRange(FIND_MY_CREEPS,1,{filter: function(creep) {return creep.memory.role == 'sauger'; }}).length == 0;
+        var b = v[i].pos.findInRange(FIND_FLAGS).length == 0;
+        if(a&&b)
+            r.push(v[i]);
+    }
+    return r;
+}
+function StartSauger(creep) 
+{
+    const target = FindSaugerLessSource(creep);
+    if(target) 
+    {
+        creep.room.createFlag(target[0].pos,"Occupied by "+creep.name);
+        creep.memory.state = 2;
+        OccupyEnergySource(creep,target[0].pos);
+        creep.memory.target = target[0].id;
+        GoToSAUGERSTATION(creep);
+    }
+}
+function GoToSAUGERSTATION(creep)
+{
+    const target = Game.getObjectById(creep.memory.target);
+    if(creep.harvest(target) == ERR_NOT_IN_RANGE)
+    {
+        creep.moveTo(target);
+    }
+    else
+    {
+        creep.memory.state = 0;
+        DoGatherEnergy(creep);
+    }
+}
+function DoGatherEnergy(creep)
+{
+    const target = Game.getObjectById(creep.memory.target);
+    creep.harvest(target);
+}
+function GoIdle(creep)
+{
+    creep.memory.state = 0;
+    creep.memory.target = -1;
+    LookForWork(creep);
+}
+function CalcWorkload(creep)//,distance,road)
+{
+    return creep.getActiveBodyparts(WORK)*50;
+}
+function FindEnergySource(creep)
+{
+    return creep.pos.findClosestByRange(FIND_SOURCES,{filter: function(source) {const p = source.pos.x+50*source.pos.y;
+        return ((creep.room.memory[p][0] + CalcWorkload(creep)) < source.energy &&
+        (creep.room.memory[p][2]==0||creep.room.memory[p][1]<creep.room.memory[p][2]));}});
+}
+function OccupyEnergySource(creep,fposi)//[source.pos.x+50*source.pos.y]
+{
+    const val = fposi.x+50*fposi.y;
+    creep.room.memory[val][0] += CalcWorkload(creep);
+    creep.room.memory[val][1] -= 1;
+}
+function DeOccupyEnergySource(creep,fposi)
+{
+     const val = fposi.x+50*fposi.y;
+    creep.room.memory[val][0] -= CalcWorkload(creep);
+    creep.room.memory[val][1] += 1;
+}
+function SuddenDeath(creep)
+{
+    if(creep.ticksToLive <= 1)
+    {
+        Game.getObjectById(creep.memory.target).pos.findInRange(FIND_FLAGS)[0].remove();
+        if(creep.memory.state = 1)
+        {
+            DeOccupyEnergySource(creep,Game.getObjectById(creep.memory.target).pos);
+        }
+        delete Memory.creeps[creep];
+        const deathWail = ['I will live forever!','We shall meet again.','Freedom at last.','I am not the first, and I will not be the last.','Strange...','Up I go...'];
+        creep.say(deathWail[Math.floor(Math.random() * deathWail.length)])
+        creep.suicide();
+    }
+}
+module.exports = roleenergiesauger;
