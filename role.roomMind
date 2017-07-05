@@ -1,0 +1,98 @@
+var role = {run: function(spawn) 
+{
+    if(spawn.energy==300 && Game.cpu.getUsed()<Game.cpu.limit)
+    {
+        if(CountCreeps('mech')<4)
+        {
+            var att = [MOVE,MOVE,CARRY,CARRY,WORK,WORK];
+            
+            spawn.createCreep(att,undefined,{role:'mech',state:0,target:-1});
+        }
+        else if(CountCreeps('sauger')<spawn.room.find(FIND_SOURCES).length)
+        {
+            var att = [MOVE,MOVE,WORK,WORK,WORK];
+            
+            spawn.createCreep(att,undefined,{role:'sauger',state:1,target:-1});
+        }
+    }
+    const ticker = Game.time%5;
+    switch (ticker){
+        case 0:
+            CheckRepair(spawn);
+            break;
+        case 1:
+            CheckBuild(spawn);
+            break;
+        case 2:
+            CheckTransfer(spawn);
+            break;
+        case 3:
+            CheckPickup(spawn);
+            break;
+        case 4:
+            CheckControl(spawn);
+            break;
+        default:
+            break;
+    }
+}};
+
+function CheckRepair(spawn)
+{
+    spawn.room.memory[-1] = [];
+    var v = spawn.room.find(FIND_STRUCTURES, 
+    {
+        filter: (structure) => 
+        {
+            return structure.hits < structure.hitsMax/2;
+        }
+    }).sort(function(a, b){return b.hits/b.hitsMax-a.hits/a.hitsMax});
+    for (var i; i<v.length;i++){
+        spawn.room.memory[-1].push([v[i].id,v[i].hitsMax-v[i].hits]);
+    }
+}
+function CheckBuild(spawn)
+{
+    spawn.room.memory[-2] = [];
+    var v = spawn.room.find(FIND_MY_CONSTRUCTION_SITES).sort(function(a, b){return b.progress/b.progressTotal-a.progress/a.progressTotal});
+    for (var i; i<v.length;i++){
+        spawn.room.memory[-2].push([v[i].id,v[i].progressTotal-b.progress]);
+    }
+}
+function CheckTransfer(spawn)
+{
+    var v = creep.room.find(FIND_STRUCTURES, 
+    {
+        filter: (structure) => 
+        {
+            return structure.energy < structure.energyCapacity;
+        }
+    });
+    spawn.room.memory[-3] = [];
+    for (var i; i<v.length;i++){
+        spawn.room.memory[-3].push([v[i].id,v[i].energyCapacity-v[i].energy]);
+    }
+}
+function CheckPickup(spawn)
+{
+    var v = creep.room.find(FIND_DROPPED_RESOURCES,);
+    spawn.room.memory[-4] = [];
+    for (var i; i<v.length;i++){
+        spawn.room.memory[-4].push([v[i].id,v[i].amount);
+    }
+}
+function CheckControl(spawn)
+{
+    spawn.room.memory[-4] = [];
+    spawn.room.memory[-4].push(0)
+    if(creep.room.controller.ticksToDowngrade<2500)
+    {
+        spawn.room.memory[-4].push(spawn.room.memory[-4]+1);
+    }
+    if(creep.room.controller.progress > creep.room.controller.progressTotal)
+    {
+        spawn.room.memory[-4].push(spawn.room.memory[-4]+1);
+    }
+    
+}
+module.exports = role;
