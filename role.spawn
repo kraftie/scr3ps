@@ -1,0 +1,47 @@
+var rolespawn = {run: function(spawn) 
+{
+    if(spawn.energy==300 && Game.cpu.getUsed()<Game.cpu.limit)
+    {
+        if(CountCreeps('mech')<4)
+        {
+            var att = [MOVE,MOVE,CARRY,CARRY,WORK,WORK];
+            
+            spawn.createCreep(att,undefined,{role:'mech',state:0,target:-1});
+        }
+        if(CountCreeps('sauger')<spawn.room.find(FIND_SOURCES).length)
+        {
+            var att = [MOVE,MOVE,WORK,WORK,WORK];
+            
+            spawn.createCreep(att,undefined,{role:'sauger',state:1,target:-1});
+        }
+    }
+    const ticker = Game.time%60;
+    switch (ticker){
+        case 0:
+            CheckIfSomeThingNeedsRepair(spawn);
+            break;
+        default:
+            break;
+    }
+}};
+function CountCreeps(ofType)
+{
+    return _.filter(Game.creeps, function(creep){ return creep.memory.role == ofType && creep.ticksToLive > 12; }).length;
+}
+function CheckIfSomeThingNeedsRepair(spawn)
+{
+    var v = spawn.room.find(FIND_STRUCTURES, 
+    {
+        filter: (structure) => 
+        {
+            return structure.hits < structure.hitsMax/2;
+        }
+    }).sort(function(a, b){return b-a});
+    for (var i; i<v.length;i++){
+        spawn.room.memory[-1].push([v[i].id,0]);
+    }
+    console.log(v);
+    return v;
+}
+
+module.exports = rolespawn;
