@@ -1,0 +1,298 @@
+/*state enum 
+ * 0: idle
+ * 1: gather
+ * 2: recharge
+ * 3: upgrade
+ * 4: build
+ * 5: repair
+ * 6: pickUpEnergy
+ */
+var roleinstandhalter = {run: function(creep) 
+{
+    SuddenDeath(creep);
+    creep.say(creep.memory.state);
+    switch(creep.memory.state)
+    {
+        case 0:
+            LookForWork(creep);
+            break;
+        case 1:
+            DoGatherEnergy(creep);
+            break;
+        case 2:
+            DoRecharge(creep);
+            break;
+        case 3:
+            DoUpgrade(creep);
+            break;
+        case 4:
+            DoBuild(creep);
+            break;
+        case 5:
+            DoRepair(creep);
+            break;
+        default:
+            creep.say('what to do...');
+    }
+}};
+function LookForWork(creep)
+{
+    if(creep.carry.energy == 0)
+    {
+        StartGatherEnergy(creep);
+    }
+    else
+    {
+        if(NeedsUpgrade(creep))
+		{ 
+		}
+		else if(SomeThingNeedsRepair(creep))
+        {
+            StartRepair(creep);
+        }
+        else if(SomeThingToRecharge(creep).length)
+        {
+            StartRecharge(creep);
+        }
+        else if(SomeThingToBuild(creep).length)
+		{
+			StartBuild(creep);
+		}
+        else 
+		{ 
+			StartUpgrade(creep);
+		}
+    }
+}
+
+function NeedsUpgrade(creep)
+{
+    if (creep.room.controller.progress > creep.room.controller.progressTotal||creep.room.controller.ticksToDowngrade<2500)
+    {
+        StartUpgrade(creep);
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+function StartUpgrade(creep)
+{
+    creep.memory.state = 3;
+}
+function DoUpgrade(creep)
+{
+    if(creep.carry.energy == 0)
+    {
+        StartGatherEnergy(creep);
+    }
+    else if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE)
+    {
+        creep.moveTo(creep.room.controller);
+    }
+}
+function SomeThingNeedsRepair(creep)
+{
+    if(creep.room.memory[-1].length)
+        return _.filter(creep.room.memory[-1],function(mem){return mem[1] >= 0});
+    else return false;
+}
+function StartRepair(creep)
+{
+    creep.memory.state = 5;
+    creep.memory.target = -1;
+}
+function DoRepair(creep)
+{
+    if(creep.carry.energy == 0)
+    {
+        StartGatherEnergy(creep);
+    }
+    else  
+    {
+        const snr = SomeThingNeedsRepair(creep);
+        if(snr)
+        {
+            const task = creep.repair(Game.getObjectById(snr[0]));
+            if(task == ERR_NOT_IN_RANGE)
+            {
+                creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
+            }
+            if(task == ERR_INVALID_TARGET)
+            {
+                creep.room.memory[-1][snr[0]][1] = -1;
+                GoIdle(creep);
+            }
+            if(task == OK)
+            {
+                GoIdle(creep);
+            }
+        }
+        else {GoIdle(creep);}
+    }
+}
+function SomeThingToBuild(creep)
+{
+    return creep.room.find(FIND_CONSTRUCTION_SITES);
+}
+function StartBuild(creep)
+{
+    creep.memory.state = 4;
+    creep.memory.target = SomeThingToBuild(creep)[0].id;
+}
+function DoBuild(creep)
+{
+    if(creep.carry.energy == 0)
+    {
+        StartGatherEnergy(creep);
+    }
+    else  
+    {
+        const target = Game.getObjectById(creep.memory.target);
+        const task = creep.build(target);
+        if(task == ERR_NOT_IN_RANGE)
+        {
+            creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
+        }
+        else if(task == ERR_INVALID_TARGET)
+        {
+            GoIdle(creep);
+        }
+    }
+}
+function SomeThingToRecharge(creep)
+{
+    return creep.room.find(FIND_STRUCTURES, 
+    {
+        filter: (structure) => 
+        {
+            return structure.energy < structure.energyCapacity;
+        }
+    });
+}
+function StartRecharge(creep)
+{
+    creep.memory.state = 2;
+    creep.memory.target = SomeThingToRecharge(creep)[0].id;
+}
+function DoRecharge(creep)
+{
+    if(creep.carry.energy == 0)
+    {
+        StartGatherEnergy(creep);
+    }
+    else 
+    {
+        const target = Game.getObjectById(creep.memory.target);
+        const doit = creep.transfer(target, RESOURCE_ENERGY);
+        if(doit== ERR_NOT_IN_RANGE) 
+        {
+            creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
+        }
+        else if(doit==ERR_FULL)
+        {
+            GoIdle(creep);
+        }
+    }
+}
+
+function StartGatherEnergy(creep) 
+{
+    const target = FindEnergySource(creep);
+    if(target) 
+    {
+        creep.memory.state = 1;
+        OccupyEnergySource(creep,target.pos);
+        creep.memory.target = target.id;
+    }
+}
+function DoGatherEnergy(creep)
+{
+    var target = Game.getObjectById(creep.memory.target);
+    if(creep.carry.energy < creep.carryCapacity)
+    {
+        var task = OK;
+        const res = target.pos.findInRange(FIND_STRUCTURES,1,{filter: function(struct){return struct.structureType == STRUCTURE_CONTAINER}});
+        if(res.length)
+        {
+            if(res[0].store[RESOURCE_ENERGY]>0)
+            {
+                task = creep.withdraw(res[0], RESOURCE_ENERGY);
+            }
+            else
+            {
+                const ress = target.pos.findInRange(FIND_DROPPED_RESOURCES,1);
+                if(ress.length)
+                {
+                    target = ress[0];
+                    task = creep.pickup(ress[0]);
+                }
+                else
+                    {task = creep.harvest(target);}
+            }
+        }
+        else
+        {
+            const res = target.pos.findInRange(FIND_DROPPED_ENERGY,1);
+            if(res.length){
+                target = res[0];
+                task = creep.pickup(res[0]);
+            }
+            else
+                {task = creep.harvest(target);}
+        }
+        if(task == ERR_NOT_IN_RANGE)
+        {
+            creep.moveTo(target);
+        }
+    }
+    else
+    {
+        DeOccupyEnergySource(creep,target.pos)
+        GoIdle(creep);
+    }
+}
+function GoIdle(creep)
+{
+    creep.memory.state = 0;
+    creep.memory.target = -1;
+    LookForWork(creep);
+}
+function CalcWorkload(creep)//,distance,road)
+{
+    return creep.getActiveBodyparts(CARRY)*50;
+}
+function FindEnergySource(creep)
+{
+    return creep.pos.findClosestByRange(FIND_SOURCES,{filter: function(source) {const p = source.pos.x+50*source.pos.y;
+        return ((creep.room.memory[p][0] + CalcWorkload(creep)) < source.energy &&
+        (creep.room.memory[p][2]==0||creep.room.memory[p][1]>0));}});
+}
+
+function OccupyEnergySource(creep,fposi)//[source.pos.x+50*source.pos.y]
+{
+    const val = fposi.x+50*fposi.y;
+    creep.room.memory[val][0] += CalcWorkload(creep);
+    creep.room.memory[val][1] -= 1;
+}
+function DeOccupyEnergySource(creep,fposi)
+{
+    const val = fposi.x+50*fposi.y;
+    creep.room.memory[val][0] -= CalcWorkload(creep);
+    creep.room.memory[val][1] += 1;
+}
+function SuddenDeath(creep)
+{
+    if(creep.ticksToLive <= 1)
+    {
+        if(creep.memory.state = 1)
+        {
+            DeOccupyEnergySource(creep,Game.getObjectById(creep.memory.target).pos);
+        }
+        delete Memory.creeps[creep];
+        creep.suicide();
+    }
+}
+
+module.exports = roleinstandhalter; 
